@@ -1,5 +1,7 @@
 package com.blucyn;
 
+import java.util.ArrayList;
+
 public class Main {
 
     public static String toPurple(String text){
@@ -9,8 +11,7 @@ public class Main {
 
     public static void main(String[] args) {
         // Initial message.
-        String message = "" +
-                "According to all known laws\n" +
+        String message = "According to all known laws\n" +
                 "of aviation,\n" +
                 "\n" +
                 "  \n" +
@@ -4571,25 +4572,44 @@ public class Main {
                 "Wrap it up, guys.\n" +
                 "\n" +
                 "  \n" +
-                "I had virtually no rehearsal for that.\n";
+                "I had virtually no rehearsal for that.";
 
         // Initialize compression object.
         Compressor c = new Compressor();
-        base64 b = new base64();
 
         // Initialize Strings.
-        String comp = c.compress(message);
+        String comp = c.compress(
+                message,
+                Integer.MAX_VALUE,
+                10
+        );
         String decomp = c.decompress(comp);
 
         // Print results.
         System.out.println("------------------------------------------------------------");
+        System.out.println("Original:");
+        System.out.println(toPurple(message));
+
+        System.out.println("------------------------------------------------------------");
         System.out.println("Decompressed:");
-        System.out.println();
         System.out.println(toPurple(decomp));
 
         System.out.println("------------------------------------------------------------");
         System.out.println("Compressed:");
-        System.out.println();
-        System.out.println(toPurple(comp));
+        System.out.println("=-+-=\n" + toPurple(comp) + "\n=-+-=");
+
+        System.out.println("------------------------------------------------------------");
+        System.out.println("Stats:");
+        System.out.println("Started at:  " + message.length() + " Characters.");
+        System.out.println("Ended at:    " + comp.length() + " Characters.");
+        System.out.println("Improved by: " + (message.length() - comp.length()) + " Characters (" + c.getCompRate(message, comp) +"%).");
+
+        System.out.println("------------------------------------------------------------");
+        if(!message.equals(decomp)){
+            System.out.println("Mission Failed.");
+        }else{
+            System.out.println("Mission Accomplished.");
+        }
+
     }
 }

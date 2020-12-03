@@ -1,13 +1,15 @@
 package com.blucyn;
 
 
+import java.util.*;
+
 public class Compressor {
     //-------------------------------------------------------------------------------------------------------------- //
     // Empty constructor.
     public Compressor(){}
 
     //-------------------------------------------------------------------------------------------------------------- //
-    // Helper Methods.
+    // Empty constructor.
 
 
     // Replaces every occurrence of a substring within the string to another.
@@ -44,13 +46,40 @@ public class Compressor {
             return "error";
         }
     }
+    public String[] getOutsideChar(String input, int amount){
+        try {
+
+            String[] characters = new String[amount];
+
+            // Loop through all possible character values.
+            int count = 32;
+
+            for(int i = 0; i < amount; i++){
+                // If its within the input, just try the next one.
+                while (input.contains(String.valueOf((char)count))) {
+                    count++;
+                }
+
+                // Return the first one found that isn't in input.
+                input += (char)count;
+                characters[i] = String.valueOf((char)count);
+            }
+
+            return characters;
+
+        }catch (Exception e){
+            // Lazy error checking.
+            System.out.println("ERROR IN GET UNIQUE CHARS METHOD");
+            return null;
+        }
+    }
 
     // Gets an arraylist of all unique pairs of letters within the input.
-    public UniqueCounts getUniquePairs(String input){
+    public ArrayList<String> getUniquePairs(String input){
         UniqueCounts u = new UniqueCounts();
 
         // Loop through all possible pairs of the string and process them.
-        for(int i = 0; i < input.length() - 1; i++){
+        for(int i = 1; i < input.length() - 1; i++){
             String pair = input.substring(i, i + 2);
 
             // If it's already in the arraylist, then increment counts.
@@ -66,7 +95,38 @@ public class Compressor {
             }
         }
 
-        return u;
+        // Sort pairs array.
+        final List<String> stringListCopy = u.pairs;
+        ArrayList<String> sortedList = new ArrayList(stringListCopy);
+        sortedList.sort(Comparator.comparingInt(s -> u.counts.get(stringListCopy.indexOf(s))));
+
+        return sortedList;
+    }
+    public ArrayList<String> getSortedWords(String input){
+        UniqueCounts u = new UniqueCounts();
+
+        // Loop through all possible pairs of the string and process them.
+        for(String word : input.split(" ")){
+
+            // If it's already in the arraylist, then increment counts.
+            if (u.pairs.contains(word)){
+                int index = u.pairs.indexOf(word);
+                int num = u.counts.get(index);
+
+                u.counts.set(index, num + 1);
+            }else{
+                // Otherwise, append it to unique pairs.
+                u.pairs.add(word);
+                u.counts.add(1);
+            }
+        }
+
+        // Sort pairs array.
+        final List<String> stringListCopy = u.pairs;
+        ArrayList<String> sortedList = new ArrayList(stringListCopy);
+        sortedList.sort(Comparator.comparingInt(s -> u.counts.get(stringListCopy.indexOf(s))));
+
+        return sortedList;
     }
 
     // Gets the rate of compression.
@@ -106,16 +166,26 @@ public class Compressor {
 
 
     // Compresses a string based on its most frequent pairs.
-    public String compressOnce(String input){
-        // Get the most frequent pair within the input.
-        String pair = this.getUniquePairs(input).getHighestPair();
+    public String compressOnce(String input, int strength){
+        // Get the most frequent pairs within the input.
+        ArrayList<String> pairs = this.getUniquePairs(input);
 
-        // Get the next available char.
-        String letter = this.getOutsideChar(input);
+        if(pairs.size() < strength){
+            System.out.println("Strength is too high for given text. Maximum strength is " + pairs.size() + ".");
+            return null;
+        }
 
-        // Replace all occurrences of the letter with the pair.
-        // Also add little instructions at the beginning for decompression.
-        input = pair + letter + this.replaceWith(input, pair, letter);
+        // Get the next [amount] available chars.
+        String[] letters = this.getOutsideChar(input, strength);
+
+        for(int i = 0; i < strength; i++){
+            String pair = pairs.get(pairs.size() - 1 - i);
+            String letter = letters[i];
+
+            // Replace all occurrences of the letter with the pair.
+            // Also add little instructions at the beginning for decompression.
+            input = pair + letter + this.replaceWith(input, pair, letter);
+        }
 
         return input;
     }
@@ -137,45 +207,109 @@ public class Compressor {
 
         return input;
     }
+    public String decompressOnce(String input, int amount){
+
+        for(int i = 0; i < amount; i++){
+            input = this.decompressOnce(input);
+        }
+        return input;
+
+    }
+
 
     //-------------------------------------------------------------------------------------------------------------- //
     // More powerful compression methods.
 
+    // Compresses a message over and over.
 
-    // Compresses a message over and over until the compression percent is under a 1% improvement.
-    public String compress(String input) {
+    public String compress(String input){
+
+        ArrayList<String> pairs = this.getUniquePairs(input);
+        return this.compress(
+                input,
+                -1,
+                Math.min(20, pairs.size()),
+                false
+        );
+
+    }
+    public String compress(String input, int times){
+
+        ArrayList<String> pairs = this.getUniquePairs(input);
+        return this.compress(
+                input,
+                times,
+                Math.min(20, pairs.size()),
+                false
+        );
+
+    }
+    public String compress(String input, int times, int strength){
+
+        return this.compress(input, times, strength, false);
+
+    }
+    public String compress(String input, int times, int strength, boolean hideImprovement){
+
+        // If times is -1, then go as long as you can improve.
+        if (times == -1) {
+            times = Integer.MAX_VALUE - 1;
+        }
+
+        // Initialize a reference point.
         String original = input;
-        try {
-            // Count keeps track of how many times input is compressed.
-            int count = 0;
 
-            // Loop forever.
-            while (true) {
-                String contender = this.compressOnce(input);
+        // Take away all enters and replace with a character that isn't in input.
+        String letter = this.getOutsideChar(input);
+        input = letter + this.replaceWith(input, "\n", letter);
 
-                // If contender is smaller than before, keep compressing.
-                if (contender.length() < input.length()) {
-                    input = contender;
-                } else {
-                    // If not, print stats then return the last compression.
-                    this.printStats(original, input, count);
+        // Set up a counter to keep track of how many iterations it's been.
+        int count = 0;
 
-                    return count + " " + input;
-                }
+        // Loop either until compression is hurting the size of the String, or count is greater than the times parameter.
+        while(true){
 
-                // Print stats periodically.
-                if(count % 5 == 0){
-                    System.out.println("Gen " + count + " Improvement: " + this.getCompRate(original, input) + " %");
-                }else{
+            // Return if count is greater than times.
+            if(count > times){
+                System.out.println("Gen " + count + " Improvement: " + this.getCompRate(original, input) + " %");
+                return strength + " " + count + " " + input;
+            }
+
+            // Compress once.
+            String next = this.compressOnce(input, strength);
+
+            // If that helped, keep going. If it did not, then return early.
+            if(next.length() >= input.length()){
+                input = strength + " " + count + " " + input;
+                System.out.println("Final Gen " + count + " Improvement: " + this.getCompRate(original, input) + " %");
+                return input;
+            }else{
+
+                // Assign new value to input.
+                input = next;
+
+                // If hide improvement is off, then print improvement records.
+                if(!hideImprovement){
+                    if(count % 5 == 0){
+                        System.out.println("Gen " + count + " Improvement: " + this.getCompRate(original, input) + " %");
+                    }
                     System.out.println(".");
                 }
-
-                // Increment count.
                 count++;
             }
-        }catch (Exception e){
-            return original;
         }
+
+    }
+
+    public String compressCostly(String input){
+
+        return this.compress(
+                input,
+                -1,
+                1,
+                false
+        );
+
     }
 
     // Counter to compress.
@@ -184,18 +318,28 @@ public class Compressor {
         try {
             // Assign proper values to setup variables.
             int splitIndex = input.indexOf(" ");
+            int strength = Integer.parseInt(input.substring(0, splitIndex));
+            input = input.substring(splitIndex + 1);
+
+            splitIndex = input.indexOf(" ");
             int compTimes = Integer.parseInt(input.substring(0, splitIndex));
             input = input.substring(splitIndex + 1);
 
             // Decompress as many times as needed.
             for(int i = 0; i < compTimes; i++){
-                input = this.decompressOnce(input);
+                input = this.decompressOnce(input, strength);
             }
 
-            return input;
+            input = this.replaceWith(input,
+                    input.substring(0,1),
+                    "\n"
+            );
+            return input.substring(1);
+
         }catch (Exception e){
-            System.out.println("ERROR");
+            System.out.println("ERROR WHEN DECOMPRESSING");
             return original;
         }
     }
+
 }
